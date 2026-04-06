@@ -1,0 +1,37 @@
+# ── Backend (Spring Boot / Maven) ────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+mvnw.cmd
+
+# IDE
+.idea/
+*.iml
+.eclipse/
+.settings/
+.project
+.classpath
+
+# Env / secrets
+activecity-api/.env
+activecity-api/application-prod.properties
+activecity-api/application-local.properties
+
+# ── Frontend (Next.js / Node) ─────────────────────────────────────
+activecity-web/node_modules/
+activecity-web/.next/
+activecity-web/out/
+activecity-web/.env
+activecity-web/.env.local
+activecity-web/.env.production
+
+# ── Logs ─────────────────────────────────────────────────────────
+.claude/logs/
+*.log
+
+# ── OS ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

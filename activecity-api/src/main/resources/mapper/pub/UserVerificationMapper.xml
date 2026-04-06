@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.pub.repository.UserVerificationMapper">
+
+    <!-- ===================================================
+         ResultMap
+         =================================================== -->
+    <resultMap id="verificationResultMap" type="com.activecity.api.cm.entity.UserVerification">
+        <id     property="id"        column="id"/>
+        <result property="userId"    column="user_id"/>
+        <result property="otpCode"   column="otp_code"/>
+        <result property="type"      column="type"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- ===================================================
+         INSERT
+         =================================================== -->
+    <insert id="insertVerification"
+            parameterType="com.activecity.api.cm.entity.UserVerification"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_verifications (user_id, otp_code, type, expires_at, created_at)
+        VALUES (
+            #{userId},
+            #{otpCode},
+            #{type},
+            #{expiresAt},
+            now()
+        )
+    </insert>
+
+    <!-- ===================================================
+         SELECT latest by userId + type
+         =================================================== -->
+    <select id="findByUserIdAndType" resultMap="verificationResultMap">
+        SELECT id, user_id, otp_code, type, expires_at, created_at
+        FROM   user_verifications
+        WHERE  user_id = #{userId}
+          AND  type    = #{type}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <!-- ===================================================
+         DELETE by userId + type (hard delete after use)
+         =================================================== -->
+    <delete id="deleteByUserId">
+        DELETE FROM user_verifications
+        WHERE  user_id = #{userId}
+          AND  type    = #{type}
+    </delete>
+
+    <!-- ===================================================
+         DELETE expired rows (housekeeping)
+         =================================================== -->
+    <delete id="deleteExpired">
+        DELETE FROM user_verifications
+        WHERE expires_at &lt; now()
+    </delete>
+
+</mapper>

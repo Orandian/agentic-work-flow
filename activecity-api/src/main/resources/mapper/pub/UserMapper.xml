@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.pub.repository.UserMapper">
+
+    <!-- ===================================================
+         ResultMap — maps snake_case columns to camelCase fields
+         =================================================== -->
+    <resultMap id="userResultMap" type="com.activecity.api.cm.entity.User">
+        <id     property="id"           column="id"/>
+        <result property="email"        column="email"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="fullName"     column="full_name"/>
+        <result property="role"         column="role"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="isActive"     column="is_active"/>
+        <result property="createdAt"    column="created_at"/>
+        <result property="updatedAt"    column="updated_at"/>
+    </resultMap>
+
+    <!-- ===================================================
+         INSERT
+         =================================================== -->
+    <insert id="insertUser" parameterType="com.activecity.api.cm.entity.User"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (email, password_hash, full_name, role, is_active, created_at, updated_at)
+        VALUES (
+            #{email},
+            #{passwordHash},
+            #{fullName},
+            #{role},
+            #{isActive},
+            now(),
+            now()
+        )
+    </insert>
+
+    <!-- ===================================================
+         SELECT by email
+         =================================================== -->
+    <select id="findByEmail" resultMap="userResultMap">
+        SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at
+        FROM users
+        WHERE email = #{email}
+        LIMIT 1
+    </select>
+
+    <!-- ===================================================
+         SELECT by id
+         =================================================== -->
+    <select id="findById" resultMap="userResultMap">
+        SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at
+        FROM users
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <!-- ===================================================
+         UPDATE is_active
+         =================================================== -->
+    <update id="updateIsActive">
+        UPDATE users
+        SET    is_active  = #{isActive},
+               updated_at = now()
+        WHERE  id = #{userId}
+    </update>
+
+    <!-- ===================================================
+         UPDATE password_hash
+         =================================================== -->
+    <update id="updatePassword">
+        UPDATE users
+        SET    password_hash = #{passwordHash},
+               updated_at    = now()
+        WHERE  id = #{userId}
+    </update>
+
+</mapper>

@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #1e1e2e;
+  --color-surface: #313244;
+  --color-surface-raised: #45475a;
+  --color-brand-primary: #cba6f7;
+  --color-brand-secondary: #89b4fa;
+  --color-text-primary: #cdd6f4;
+  --color-text-muted: #a6adc8;
+  --color-border: #45475a;
+  --color-error: #f38ba8;
+  --color-success: #a6e3a1;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-1 {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: 0ms;
+}
+
+.animate-fade-in-2 {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: 100ms;
+}
+
+.animate-fade-in-3 {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: 200ms;
+}
+
+.animate-fade-in-4 {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-1,
+  .animate-fade-in-2,
+  .animate-fade-in-3,
+  .animate-fade-in-4 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body), sans-serif;
+  background-image:
+    radial-gradient(ellipse at 15% 20%, rgba(203, 166, 247, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 10%, rgba(137, 180, 250, 0.06) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 80%, rgba(203, 166, 247, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 90% 90%, rgba(137, 180, 250, 0.04) 0%, transparent 40%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
