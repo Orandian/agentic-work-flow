@@ -113,23 +113,44 @@ echo "######################################"
 if [ -f "$ROOT_DIR/ai-search/requirements.txt" ]; then
   cd "$ROOT_DIR/ai-search"
 
-  # Remove stale venv if it was built against a different Python version
+  # Use Python 3.13 for the ai-search venv — many packages (pydantic-core, chromadb)
+  # use PyO3 which currently supports Python ≤ 3.13. Python 3.14 support is in progress.
+  AI_PYTHON=""
+  for ver in python3.13 python3.12 python3.11 python3; do
+    if command -v "$ver" &>/dev/null; then
+      PY_MAJOR="$("$ver" -c 'import sys; print(sys.version_info.minor)')"
+      PY_FULL="$("$ver" --version 2>&1)"
+      # Prefer 3.13 or lower; skip 3.14+ for now
+      if [ "$("$ver" -c 'import sys; print(sys.version_info.major)')" -eq 3 ] && [ "$PY_MAJOR" -le 13 ]; then
+        AI_PYTHON="$ver"
+        break
+      fi
+    fi
+  done
+
+  if [ -z "$AI_PYTHON" ]; then
+    echo "  ⚠  Python ≤ 3.13 not found — trying system python3 (may fail on 3.14)"
+    AI_PYTHON=python3
+  fi
+
+  echo "  Using $AI_PYTHON ($($AI_PYTHON --version 2>&1)) for ai-search venv"
+
+  # Remove stale venv if it was built against a different Python binary
   if [ -d "venv" ]; then
-    VENV_PYTHON="$(venv/bin/python3 --version 2>/dev/null || echo '')"
-    SYS_PYTHON="$(python3 --version 2>/dev/null || echo '')"
-    if [ "$VENV_PYTHON" != "$SYS_PYTHON" ]; then
-      echo "  Python version mismatch ($VENV_PYTHON vs $SYS_PYTHON) — rebuilding venv..."
+    VENV_PYTHON="$(venv/bin/python3 --version 2>/dev/null || echo 'unknown')"
+    TARGET_PYTHON="$($AI_PYTHON --version 2>/dev/null || echo 'none')"
+    if [ "$VENV_PYTHON" != "$TARGET_PYTHON" ]; then
+      echo "  Rebuilding venv ($VENV_PYTHON → $TARGET_PYTHON)..."
       rm -rf venv
     fi
   fi
 
   if [ ! -d "venv" ]; then
     echo "  Creating Python virtual environment..."
-    python3 -m venv venv
+    "$AI_PYTHON" -m venv venv
   fi
 
   echo "  Installing Python dependencies..."
-  # Run in a subshell so activate/deactivate don't affect the parent
   if ( source venv/bin/activate && pip install -r requirements.txt -q && deactivate ); then
     echo "  ✔  AI Search dependencies installed"
   else
