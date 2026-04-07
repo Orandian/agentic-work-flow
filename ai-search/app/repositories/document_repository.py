@@ -24,6 +24,9 @@ class AiDocument(Base):
 
 def get_engine(url: str | None = None):
     db_url = url or settings.database_url
+    # Normalise legacy postgresql:// → postgresql+psycopg:// for psycopg3
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
     return create_engine(db_url)
 
 

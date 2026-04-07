@@ -4,7 +4,7 @@
 # Full initialisation: check prerequisites → build all services → run
 # Usage: chmod +x init.sh && ./init.sh [--skip-setup] [--build]
 # =============================================================================
-set -euo pipefail
+set -uo pipefail  # note: -e removed so individual step failures don't abort the whole script
 
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -112,15 +112,30 @@ echo "######################################"
 
 if [ -f "$ROOT_DIR/ai-search/requirements.txt" ]; then
   cd "$ROOT_DIR/ai-search"
+
+  # Remove stale venv if it was built against a different Python version
+  if [ -d "venv" ]; then
+    VENV_PYTHON="$(venv/bin/python3 --version 2>/dev/null || echo '')"
+    SYS_PYTHON="$(python3 --version 2>/dev/null || echo '')"
+    if [ "$VENV_PYTHON" != "$SYS_PYTHON" ]; then
+      echo "  Python version mismatch ($VENV_PYTHON vs $SYS_PYTHON) — rebuilding venv..."
+      rm -rf venv
+    fi
+  fi
+
   if [ ! -d "venv" ]; then
     echo "  Creating Python virtual environment..."
     python3 -m venv venv
   fi
+
   echo "  Installing Python dependencies..."
-  source venv/bin/activate
-  pip install -r requirements.txt -q
-  deactivate
-  echo "  ✔  AI Search dependencies installed"
+  # Run in a subshell so activate/deactivate don't affect the parent
+  if ( source venv/bin/activate && pip install -r requirements.txt -q && deactivate ); then
+    echo "  ✔  AI Search dependencies installed"
+  else
+    echo "  ⚠  AI Search install had errors — check output above"
+    echo "     The service will be skipped in runAll.sh until fixed"
+  fi
   cd "$ROOT_DIR"
 else
   echo "  ⚠  ai-search/requirements.txt not found — skipping"
