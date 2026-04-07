@@ -168,14 +168,8 @@ fi
 # ── 8. .env files ─────────────────────────────────────────────────────────────
 print_section "Environment Files"
 
-declare -A ENV_MAP=(
-  ["activecity-api/.env"]="activecity-api/.env.example"
-  ["activecity-web/.env.local"]="activecity-web/.env.example"
-  ["ai-search/.env"]="ai-search/.env.example"
-)
-
-for env_file in "${!ENV_MAP[@]}"; do
-  example="${ENV_MAP[$env_file]}"
+check_env() {
+  local env_file=$1 example=$2
   if [ -f "$env_file" ]; then
     ok "$env_file exists"
   elif [ -f "$example" ]; then
@@ -184,7 +178,11 @@ for env_file in "${!ENV_MAP[@]}"; do
   else
     check_warn "$env_file missing — example not available yet (scaffold first)"
   fi
-done
+}
+
+check_env "activecity-api/.env"    "activecity-api/.env.example"
+check_env "activecity-web/.env.local" "activecity-web/.env.example"
+check_env "ai-search/.env"         "ai-search/.env.example"
 
 # ── 9. Install frontend dependencies ──────────────────────────────────────────
 print_section "Frontend Dependencies"
