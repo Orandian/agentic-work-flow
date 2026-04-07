@@ -1,201 +1,177 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
-# runAll.sh — ActiveCity Staff Portal — Mac / Linux
-# Starts all services: PostgreSQL, ChromaDB, Spring Boot, Next.js, FastAPI RAG
-# Usage: chmod +x runAll.sh && ./runAll.sh [--build] [--db-only] [--down] [--logs]
+# runAll.sh — ActiveCity Staff Portal
+# Starts all services locally (infra via Docker, apps as local processes)
+# Ctrl+C stops everything cleanly
 # =============================================================================
+set -euo pipefail
 
-set -e
 
-# ── Colors ────────────────────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-print_header() {
-  clear
-  echo ""
-  echo -e "${BLUE}${BOLD}╔════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}${BOLD}║        ActiveCity Staff Portal — Run All           ║${NC}"
-  echo -e "${BLUE}${BOLD}╚════════════════════════════════════════════════════╝${NC}"
-  echo ""
-}
 
-ok()     { echo -e "  ${GREEN}✔${NC}  $1"; }
-warn()   { echo -e "  ${YELLOW}⚠${NC}  $1"; }
-fail()   { echo -e "  ${RED}✘${NC}  $1"; }
-info()   { echo -e "  ${BLUE}ℹ${NC}  $1"; }
-step()   { echo -e "\n${CYAN}${BOLD}▶ $1${NC}"; }
-divider(){ echo -e "\n${BLUE}────────────────────────────────────────────────────${NC}"; }
+# ── Port map ──────────────────────────────────────────────────────────────────
+PORT_DB=${POSTGRES_PORT:-5432}
+PORT_CHROMA=${CHROMA_HOST_PORT:-8001}
+PORT_BACKEND=${BACKEND_PORT:-8080}
+PORT_FRONTEND=${FRONTEND_PORT:-3000}
+PORT_AI_SEARCH=${AI_SEARCH_PORT:-8000}
+PORT_PGADMIN=${PGADMIN_PORT:-5050}
 
-# ── Detect docker compose command ─────────────────────────────────────────────
-if docker compose version &>/dev/null 2>&1; then
-  DC="docker compose"
-elif command -v docker-compose &>/dev/null; then
-  DC="docker-compose"
-else
-  fail "Docker Compose not found. Run ./setup.sh first."
-  exit 1
+
+# ── Open-browser helper (macOS / Linux / WSL) ─────────────────────────────────
+OPEN_CMD="xdg-open"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  OPEN_CMD="open"
+elif grep -qi microsoft /proc/version 2>/dev/null; then
+  OPEN_CMD="$(command -v explorer.exe 2>/dev/null || echo /mnt/c/WINDOWS/explorer.exe)"
+  # Strip Windows paths from PATH to avoid shebang conflicts in WSL
+  CLEAN_PATH=""
+  IFS=':' read -ra DIRS <<< "$PATH"
+  for d in "${DIRS[@]}"; do
+    case "$d" in /mnt/[a-zA-Z]/*) ;; *) CLEAN_PATH="${CLEAN_PATH:+$CLEAN_PATH:}$d" ;; esac
+  done
+  export PATH="$CLEAN_PATH"
 fi
 
-# ── Parse arguments ───────────────────────────────────────────────────────────
-BUILD_FLAG=""
-MODE="all"
 
-for arg in "$@"; do
-  case $arg in
-    --build)   BUILD_FLAG="--build" ;;
-    --db-only) MODE="db-only" ;;
-    --down)    MODE="down" ;;
-    --logs)    MODE="logs" ;;
-    --tools)   TOOLS_PROFILE="--profile tools" ;;
-    --help|-h)
-      echo "Usage: ./runAll.sh [options]"
-      echo ""
-      echo "Options:"
-      echo "  --build    Force rebuild all Docker images"
-      echo "  --db-only  Start only PostgreSQL and ChromaDB"
-      echo "  --down     Stop and remove all containers"
-      echo "  --logs     Tail logs from all running containers"
-      echo "  --tools    Also start pgAdmin (DB GUI on port 5050)"
-      echo "  --help     Show this help message"
-      exit 0
-      ;;
-  esac
-done
-
-# ─────────────────────────────────────────────────────────────────────────────
-print_header
-
-# ── Handle --down ─────────────────────────────────────────────────────────────
-if [ "$MODE" = "down" ]; then
-  step "Stopping all containers"
-  $DC down --remove-orphans
-  ok "All containers stopped"
-  exit 0
-fi
-
-# ── Handle --logs ─────────────────────────────────────────────────────────────
-if [ "$MODE" = "logs" ]; then
-  step "Tailing logs (Ctrl+C to stop)"
-  $DC logs -f
-  exit 0
-fi
-
-# ── Pre-flight checks ─────────────────────────────────────────────────────────
-step "Pre-flight checks"
-
-# Docker running?
-if ! docker info &>/dev/null 2>&1; then
-  fail "Docker is not running — start Docker Desktop first"
-  exit 1
-fi
-ok "Docker is running"
-
-# .env file?
-if [ ! -f ".env" ]; then
-  if [ -f ".env.example" ]; then
-    cp .env.example .env
-    warn ".env created from .env.example — using default values"
-    warn "Edit .env to set real credentials before going to production"
-  else
-    warn ".env not found — Docker will use built-in defaults"
-  fi
-else
-  ok ".env file found"
-fi
-
-# ── Load .env ─────────────────────────────────────────────────────────────────
-if [ -f ".env" ]; then
-  set -a
-  source .env
-  set +a
-fi
-
-# ── Start services ────────────────────────────────────────────────────────────
-if [ "$MODE" = "db-only" ]; then
-  step "Starting database services only"
-  $DC up -d db chroma $BUILD_FLAG
-  ok "PostgreSQL and ChromaDB starting..."
-
-else
-  step "Building and starting all services"
-  info "This may take a few minutes on first run (downloading images + building)"
-  echo ""
-
-  $DC up -d $BUILD_FLAG ${TOOLS_PROFILE:-}
-
-  echo ""
-  ok "All containers started"
-fi
-
-# ── Wait for services ─────────────────────────────────────────────────────────
-divider
-step "Waiting for services to be healthy"
-
-wait_for_health() {
-  local name=$1
-  local max_wait=$2
+# ── Health check: wait until a port is accepting connections ──────────────────
+# Usage: wait_for_port <port> <service-name> [timeout-seconds=60]
+wait_for_port() {
+  local port="$1" name="$2" timeout="${3:-60}"
   local elapsed=0
-
-  printf "  Waiting for %-20s" "$name..."
-  while [ $elapsed -lt $max_wait ]; do
-    STATUS=$(docker inspect --format='{{.State.Health.Status}}' "activecity-$name" 2>/dev/null || echo "starting")
-    if [ "$STATUS" = "healthy" ]; then
-      echo -e " ${GREEN}healthy${NC} (${elapsed}s)"
+  printf "  Waiting for %-28s" "${name} (port ${port})..."
+  while [ $elapsed -lt $timeout ]; do
+    if curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/" 2>/dev/null || \
+       curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || \
+       curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/health" 2>/dev/null; then
+      echo " ✔ ready (${elapsed}s)"
       return 0
-    elif [ "$STATUS" = "unhealthy" ]; then
-      echo -e " ${RED}unhealthy${NC}"
-      echo ""
-      warn "Check logs: $DC logs activecity-$name"
-      return 1
     fi
     sleep 3
     elapsed=$((elapsed + 3))
     printf "."
   done
-  echo -e " ${YELLOW}timeout${NC} (check manually)"
+  echo " ✖ timeout after ${timeout}s"
   return 1
 }
 
-wait_for_health "db"      60
-wait_for_health "backend" 120
 
-# ── Service URLs ──────────────────────────────────────────────────────────────
-FRONTEND_PORT=${FRONTEND_PORT:-3000}
-BACKEND_PORT=${BACKEND_PORT:-8080}
-AI_SEARCH_PORT=${AI_SEARCH_PORT:-8001}
-CHROMA_PORT=${CHROMA_PORT:-8000}
-POSTGRES_PORT=${POSTGRES_PORT:-5432}
-PGADMIN_PORT=${PGADMIN_PORT:-5050}
+# ── Cleanup: kill all child processes + Docker infra on Ctrl+C ───────────────
+cleanup() {
+  echo ""
+  echo "Stopping all services..."
+  kill 0 2>/dev/null || true
+  wait 2>/dev/null || true
 
-divider
-echo ""
-echo -e "${BOLD}  🚀 ActiveCity Staff Portal is running!${NC}"
-echo ""
-echo -e "  ${GREEN}●${NC}  Frontend     →  ${CYAN}http://localhost:${FRONTEND_PORT}${NC}"
-echo -e "  ${GREEN}●${NC}  Backend API  →  ${CYAN}http://localhost:${BACKEND_PORT}/api/v1${NC}"
-echo -e "  ${GREEN}●${NC}  AI Search    →  ${CYAN}http://localhost:${AI_SEARCH_PORT}/docs${NC}"
-echo -e "  ${GREEN}●${NC}  ChromaDB     →  ${CYAN}http://localhost:${CHROMA_PORT}${NC}"
-echo -e "  ${GREEN}●${NC}  PostgreSQL   →  ${CYAN}localhost:${POSTGRES_PORT}${NC}"
+  echo "Stopping Docker infrastructure..."
+  (cd "$ROOT_DIR" && docker compose down) 2>/dev/null || true
 
-if [ -n "$TOOLS_PROFILE" ]; then
-  echo -e "  ${GREEN}●${NC}  pgAdmin      →  ${CYAN}http://localhost:${PGADMIN_PORT}${NC}"
+  echo "Done."
+}
+trap cleanup INT TERM
+
+
+# ── Load root .env if present ─────────────────────────────────────────────────
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a; source "$ROOT_DIR/.env"; set +a
 fi
 
+
 echo ""
-divider
+echo "=========================================="
+echo " PostgreSQL + ChromaDB  (Docker)"
+echo "  PostgreSQL : port ${PORT_DB}"
+echo "  ChromaDB   : port ${PORT_CHROMA}"
+echo "=========================================="
+cd "$ROOT_DIR"
+docker compose up -d db chroma
+
+
 echo ""
-echo -e "  ${BOLD}Useful commands:${NC}"
-echo -e "  View logs:        ${CYAN}$DC logs -f${NC}"
-echo -e "  View one service: ${CYAN}$DC logs -f backend${NC}"
-echo -e "  Stop all:         ${CYAN}./runAll.sh --down${NC}"
-echo -e "  Restart + build:  ${CYAN}./runAll.sh --build${NC}"
-echo -e "  DB GUI:           ${CYAN}./runAll.sh --tools${NC}"
-echo -e "  Container status: ${CYAN}docker ps${NC}"
+echo "=========================================="
+echo " Spring Boot Backend  (port ${PORT_BACKEND})"
+echo "=========================================="
+if [ -f "$ROOT_DIR/activecity-api/mvnw" ]; then
+  (cd "$ROOT_DIR/activecity-api" && ./mvnw spring-boot:run -q) &
+elif command -v mvn &>/dev/null; then
+  (cd "$ROOT_DIR/activecity-api" && mvn spring-boot:run -q) &
+else
+  echo "  ⚠  Maven wrapper not found — skipping backend (run: cd activecity-api && ./mvnw spring-boot:run)"
+fi
+
+
 echo ""
+echo "=========================================="
+echo " Next.js Frontend  (port ${PORT_FRONTEND})"
+echo "=========================================="
+if [ -f "$ROOT_DIR/activecity-web/package.json" ]; then
+  if command -v pnpm &>/dev/null; then
+    (cd "$ROOT_DIR/activecity-web" && pnpm dev) &
+  else
+    (cd "$ROOT_DIR/activecity-web" && npm run dev) &
+  fi
+else
+  echo "  ⚠  activecity-web/package.json not found — skipping frontend"
+fi
+
+
+echo ""
+echo "=========================================="
+echo " AI Search — FastAPI RAG  (port ${PORT_AI_SEARCH})"
+echo "=========================================="
+if [ -f "$ROOT_DIR/ai-search/requirements.txt" ]; then
+  if [ -f "$ROOT_DIR/ai-search/venv/bin/activate" ]; then
+    (cd "$ROOT_DIR/ai-search" && source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port "$PORT_AI_SEARCH" --reload) &
+  else
+    echo "  ⚠  ai-search/venv not found — run init.sh first to create the virtual environment"
+  fi
+else
+  echo "  ⚠  ai-search/requirements.txt not found — skipping"
+fi
+
+
+echo ""
+echo "=========================================="
+echo " pgAdmin  (Docker — optional)"
+echo "  Run with: docker compose --profile tools up -d pgadmin"
+echo "=========================================="
+
+
+echo ""
+echo "=========================================="
+echo " Health checks"
+echo "=========================================="
+wait_for_port "$PORT_DB"         "PostgreSQL"        60  || true
+wait_for_port "$PORT_CHROMA"     "ChromaDB"          60  || true
+wait_for_port "$PORT_BACKEND"    "Spring Boot"      120  || true
+wait_for_port "$PORT_FRONTEND"   "Next.js"           90  || true
+wait_for_port "$PORT_AI_SEARCH"  "AI Search"         90  || true
+echo ""
+
+
+# ── Open browser tabs ─────────────────────────────────────────────────────────
+"$OPEN_CMD" "http://localhost:${PORT_FRONTEND}"           2>/dev/null || true
+"$OPEN_CMD" "http://localhost:${PORT_BACKEND}/swagger-ui" 2>/dev/null || true
+"$OPEN_CMD" "http://localhost:${PORT_AI_SEARCH}/docs"     2>/dev/null || true
+
+
+echo ""
+echo "=========================================="
+echo " All services running — Ctrl+C to stop"
+echo ""
+echo "  Frontend   (Next.js)          :  http://localhost:${PORT_FRONTEND}"
+echo "  Backend    (Spring Boot API)  :  http://localhost:${PORT_BACKEND}"
+echo "  AI Search  (FastAPI RAG)      :  http://localhost:${PORT_AI_SEARCH}"
+echo "  AI Docs    (Swagger UI)       :  http://localhost:${PORT_AI_SEARCH}/docs"
+echo "  PostgreSQL                    :  localhost:${PORT_DB}"
+echo "  ChromaDB                      :  http://localhost:${PORT_CHROMA}"
+echo ""
+echo "  Optional:"
+echo "  pgAdmin  :  docker compose --profile tools up -d pgadmin"
+echo "              http://localhost:${PORT_PGADMIN}"
+echo "=========================================="
+echo ""
+
+
+wait

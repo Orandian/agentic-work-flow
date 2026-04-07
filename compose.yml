@@ -1,10 +1,11 @@
 # =============================================================================
-# docker-compose.yml — ActiveCity Staff Portal
-# Services: PostgreSQL, Spring Boot backend, Next.js frontend, FastAPI RAG
-# Usage: docker compose up --build
+# compose.yml — ActiveCity Staff Portal
+# Infrastructure-only: PostgreSQL + ChromaDB (for local dev)
+# Full stack (production):  docker compose --profile app up --build
+# Usage:
+#   Local dev infra only:  docker compose up -d db chroma
+#   Full stack:            docker compose --profile app up --build
 # =============================================================================
-
-version: '3.9'
 
 networks:
   activecity-net:
@@ -27,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-activecity_pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./activecity-api/src/main/resources/db/V1__init_auth_schema.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     networks:
@@ -38,10 +39,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Spring Boot Backend ──────────────────────────────────────────────────────
+  # ── ChromaDB (Vector Store) ──────────────────────────────────────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: activecity-chroma
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "${CHROMA_HOST_PORT:-8001}:8000"
+    networks:
+      - activecity-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend (production profile only) ────────────────────────────
   backend:
     build:
-      context: ./backend
+      context: ./activecity-api
       dockerfile: Dockerfile
     container_name: activecity-backend
     restart: unless-stopped
@@ -49,12 +67,12 @@ services:
       SPRING_DATASOURCE_URL:      jdbc:postgresql://db:5432/${POSTGRES_DB:-activecity}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-activecity_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-activecity_pass}
-      JWT_SECRET:                 ${JWT_SECRET:-change-this-secret-min-32-characters!!}
+      JWT_SECRET:                 ${JWT_SECRET:?JWT_SECRET is required}
       MAIL_HOST:                  ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT:                  ${MAIL_PORT:-587}
       MAIL_USERNAME:              ${MAIL_USERNAME:-noreply@example.com}
-      MAIL_PASSWORD:              ${MAIL_PASSWORD:-your_app_password}
-      SPRING_PROFILES_ACTIVE:     ${SPRING_PROFILE:-docker}
+      MAIL_PASSWORD:              ${MAIL_PASSWORD:-}
+      SPRING_PROFILES_ACTIVE:     docker
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
@@ -62,6 +80,8 @@ services:
         condition: service_healthy
     networks:
       - activecity-net
+    profiles:
+      - app
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
@@ -69,23 +89,16 @@ services:
       retries: 5
       start_period: 60s
 
-  # ── Next.js Frontend ─────────────────────────────────────────────────────────
+  # ── Next.js Frontend (production profile only) ───────────────────────────────
   frontend:
     build:
-      context: ./frontend
+      context: ./activecity-web
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL:           ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
-        NEXT_PUBLIC_AI_SEARCH_URL:     ${NEXT_PUBLIC_AI_SEARCH_URL:-http://localhost:8001}
-        NEXT_PUBLIC_SUPABASE_URL:      ${NEXT_PUBLIC_SUPABASE_URL:-https://placeholder.supabase.co}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-placeholder}
     container_name: activecity-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL:           ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
-      NEXT_PUBLIC_AI_SEARCH_URL:     ${NEXT_PUBLIC_AI_SEARCH_URL:-http://localhost:8001}
-      NEXT_PUBLIC_SUPABASE_URL:      ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      API_BASE_URL: http://backend:8080
+      NODE_ENV:     production
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
@@ -93,8 +106,10 @@ services:
         condition: service_healthy
     networks:
       - activecity-net
+    profiles:
+      - app
 
-  # ── FastAPI RAG (AI Search) ──────────────────────────────────────────────────
+  # ── FastAPI RAG / AI Search (production profile only) ───────────────────────
   ai-search:
     build:
       context: ./ai-search
@@ -104,36 +119,22 @@ services:
     environment:
       CHROMA_HOST:       chroma
       CHROMA_PORT:       "8000"
-      EMBEDDING_MODEL:   ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      DATABASE_URL:      postgresql://${POSTGRES_USER:-activecity_user}:${POSTGRES_PASSWORD:-activecity_pass}@db:5432/${POSTGRES_DB:-activecity}
+      JWT_SECRET:        ${JWT_SECRET:?JWT_SECRET is required}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ALLOWED_ORIGINS:   ${ALLOWED_ORIGINS:-http://localhost:3000}
-    volumes:
-      - ./ai-search/documents:/app/documents
+      APP_ENV:           production
     ports:
-      - "${AI_SEARCH_PORT:-8001}:8001"
+      - "${AI_SEARCH_PORT:-8000}:8000"
     depends_on:
       - chroma
+      - db
     networks:
       - activecity-net
+    profiles:
+      - app
 
-  # ── ChromaDB (Vector Store) ──────────────────────────────────────────────────
-  chroma:
-    image: chromadb/chroma:latest
-    container_name: activecity-chroma
-    restart: unless-stopped
-    volumes:
-      - chroma_data:/chroma/chroma
-    ports:
-      - "${CHROMA_PORT:-8000}:8000"
-    networks:
-      - activecity-net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── pgAdmin (optional DB GUI — run with: docker compose --profile tools up) ──
+  # ── pgAdmin (optional — run with: docker compose --profile tools up) ─────────
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: activecity-pgadmin
