@@ -36,17 +36,20 @@ fi
 
 
 # ── Health check: wait until a port is accepting connections ──────────────────
-# Usage: wait_for_port <port> <service-name> [timeout-seconds=60]
+# Usage: wait_for_port <port> <service-name> [timeout-seconds=60] [health-path]
 wait_for_port() {
-  local port="$1" name="$2" timeout="${3:-60}"
+  local port="$1" name="$2" timeout="${3:-60}" health_path="${4:-}"
   local elapsed=0
   printf "  Waiting for %-28s" "${name} (port ${port})..."
   while [ $elapsed -lt $timeout ]; do
-    if curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/" 2>/dev/null || \
-       curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || \
-       curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/health" 2>/dev/null; then
-      echo " ✔ ready (${elapsed}s)"
-      return 0
+    if [ -n "$health_path" ]; then
+      curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}${health_path}" 2>/dev/null && \
+        { echo " ✔ ready (${elapsed}s)"; return 0; }
+    else
+      curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/" 2>/dev/null || \
+      curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || \
+      curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${port}/health" 2>/dev/null && \
+        { echo " ✔ ready (${elapsed}s)"; return 0; }
     fi
     sleep 3
     elapsed=$((elapsed + 3))
@@ -142,18 +145,21 @@ echo ""
 echo "=========================================="
 echo " Health checks"
 echo "=========================================="
-wait_for_port "$PORT_DB"         "PostgreSQL"        60  || true
-wait_for_port "$PORT_CHROMA"     "ChromaDB"          60  || true
-wait_for_port "$PORT_BACKEND"    "Spring Boot"      120  || true
-wait_for_port "$PORT_FRONTEND"   "Next.js"           90  || true
-wait_for_port "$PORT_AI_SEARCH"  "AI Search"         90  || true
+wait_for_port "$PORT_DB"         "PostgreSQL"        60                          || true
+wait_for_port "$PORT_CHROMA"     "ChromaDB"          60  "/api/v2/heartbeat"       || true
+wait_for_port "$PORT_BACKEND"    "Spring Boot"      120  "/actuator/health"        || true
+wait_for_port "$PORT_FRONTEND"   "Next.js"           90                            || true
+wait_for_port "$PORT_AI_SEARCH"  "AI Search"         90  "/health"                 || true
 echo ""
 
 
-# ── Open browser tabs ─────────────────────────────────────────────────────────
-"$OPEN_CMD" "http://localhost:${PORT_FRONTEND}"           2>/dev/null || true
-"$OPEN_CMD" "http://localhost:${PORT_BACKEND}/swagger-ui" 2>/dev/null || true
-"$OPEN_CMD" "http://localhost:${PORT_AI_SEARCH}/docs"     2>/dev/null || true
+# ── Open browser tabs (only for services that responded) ─────────────────────
+curl -sf -o /dev/null --max-time 1 "http://localhost:${PORT_FRONTEND}/" && \
+  "$OPEN_CMD" "http://localhost:${PORT_FRONTEND}" 2>/dev/null || true
+curl -sf -o /dev/null --max-time 1 "http://localhost:${PORT_BACKEND}/actuator/health" && \
+  "$OPEN_CMD" "http://localhost:${PORT_BACKEND}/swagger-ui" 2>/dev/null || true
+curl -sf -o /dev/null --max-time 1 "http://localhost:${PORT_AI_SEARCH}/health" && \
+  "$OPEN_CMD" "http://localhost:${PORT_AI_SEARCH}/docs" 2>/dev/null || true
 
 
 echo ""

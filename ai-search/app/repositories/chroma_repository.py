@@ -1,8 +1,10 @@
+from __future__ import annotations
 import threading
+from typing import Any
 import chromadb
 from app.config.settings import settings
 
-_client: chromadb.HttpClient | None = None
+_client: Any = None
 _collection = None
 _lock = threading.Lock()
 
