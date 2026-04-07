@@ -1,67 +1,64 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+const AUTH_COOKIE = "ac_token";
+
+const PUBLIC_PATHS = [
+  "/login",
+  "/register",
+  "/verify-otp",
+  "/forgot-password",
+  "/reset-password",
+];
+
+const PROTECTED_PATTERNS = [
+  /^\/dashboard(\/.*)?$/,
+  /^\/admin(\/.*)?$/,
+  /^\/user(\/.*)?$/,
+];
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64url").toString(),
+    );
+    return typeof payload.exp === "number" && payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Pass through auth API routes and auth pages
+  // Always allow API routes and static assets through
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+
+  // Allow public auth pages through
   if (
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/(auth)") ||
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/verify-otp" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password"
+    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
   ) {
     return NextResponse.next();
   }
 
-  let supabaseResponse = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  // Use getUser() (not getSession()) — validates against Supabase server, catches revoked sessions
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Protected route patterns
-  const protectedPatterns = [
-    /^\/dashboard(\/.*)?$/,
-    /^\/admin(\/.*)?$/,
-    /^\/user(\/.*)?$/,
-  ];
-  const isProtected = protectedPatterns.some((pattern) =>
+  const isProtected = PROTECTED_PATTERNS.some((pattern) =>
     pattern.test(pathname),
   );
 
-  if (isProtected && !user) {
+  if (!isProtected) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get(AUTH_COOKIE)?.value;
+
+  if (!token || isTokenExpired(token)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 export const config = {
