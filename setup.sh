@@ -64,8 +64,8 @@ fi
 # ── 2. Maven wrapper ──────────────────────────────────────────────────────────
 print_section "Maven (Spring Boot build)"
 
-if [ -f "./backend/mvnw" ]; then
-  ok "Maven wrapper found at ./backend/mvnw"
+if [ -f "./activecity-api/mvnw" ]; then
+  ok "Maven wrapper found at ./activecity-api/mvnw"
 elif command -v mvn &>/dev/null; then
   MVN_VER=$(mvn -version 2>&1 | awk '/Apache Maven/ {print $3}')
   require_min_version "Maven" "$MVN_VER" "3.8"
@@ -169,8 +169,8 @@ fi
 print_section "Environment Files"
 
 declare -A ENV_MAP=(
-  ["backend/.env"]="backend/.env.example"
-  ["frontend/.env.local"]="frontend/.env.example"
+  ["activecity-api/.env"]="activecity-api/.env.example"
+  ["activecity-web/.env.local"]="activecity-web/.env.example"
   ["ai-search/.env"]="ai-search/.env.example"
 )
 
@@ -189,13 +189,13 @@ done
 # ── 9. Install frontend dependencies ──────────────────────────────────────────
 print_section "Frontend Dependencies"
 
-if [ -f "frontend/package.json" ] && [ -n "$PKG_MGR" ]; then
+if [ -f "activecity-web/package.json" ] && [ -n "$PKG_MGR" ]; then
   info "Installing frontend dependencies with $PKG_MGR..."
-  cd frontend
+  cd activecity-web
   $PKG_MGR install --silent 2>/dev/null && ok "Frontend dependencies installed" || check_warn "Frontend install had warnings"
   cd ..
 else
-  info "Skipping — frontend/package.json not found yet (scaffold first)"
+  info "Skipping — activecity-web/package.json not found yet (scaffold first)"
 fi
 
 # ── 10. Python venv + dependencies ────────────────────────────────────────────
