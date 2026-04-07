@@ -14,8 +14,8 @@ ActiveCity Staff Portal is an internal web application for city government emplo
 
 | Layer | Technology |
 |---|---|
-| Backend | Spring Boot 3.3.4 · Java 17 · MyBatis 3.0.3 · Spring Security · auth0 java-jwt 4.4.0 |
-| Frontend | Next.js 15 · React 19 · TypeScript · Tailwind CSS · TanStack Query · Axios |
+| Backend | Spring Boot 3.5.3 · Java 21 · MyBatis 3.0.4 · Spring Security · auth0 java-jwt 4.5.0 |
+| Frontend | Next.js 16.2.2 · React 19.2.4 · TypeScript 6 · Tailwind CSS 4 · TanStack Query · Axios |
 | Auth | BCrypt + HMAC256 JWT on backend; Supabase SSR cookie sessions on frontend |
 | Database | PostgreSQL 15+ |
 | Testing | JUnit 5 + Spring Boot Test · Vitest + Testing Library |
