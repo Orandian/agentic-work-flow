@@ -31,4 +31,28 @@ public final class CommonMessage {
 
     // --- Generic ---
     public static final String INTERNAL_SERVER_ERROR = "An unexpected error occurred. Please try again later.";
+
+    // --- Staff management ---
+    public static final String STAFF_NOT_FOUND       = "No staff member found with the provided ID.";
+    public static final String STAFF_CREATED         = "Staff member created successfully.";
+    public static final String STAFF_UPDATED         = "Staff member updated successfully.";
+    public static final String STAFF_DELETED         = "Staff member deleted successfully.";
+
+    // --- Task management ---
+    public static final String TASK_NOT_FOUND        = "No task found with the provided ID.";
+    public static final String TASK_CREATED          = "Task created successfully.";
+    public static final String TASK_UPDATED          = "Task updated successfully.";
+    public static final String TASK_DELETED          = "Task deleted successfully.";
+
+    // --- Notice management ---
+    public static final String NOTICE_NOT_FOUND      = "No notice found with the provided ID.";
+    public static final String NOTICE_CREATED        = "Notice created successfully.";
+    public static final String NOTICE_UPDATED        = "Notice updated successfully.";
+    public static final String NOTICE_DELETED        = "Notice deleted successfully.";
+    public static final String NOTICE_PUBLISHED      = "Notice published successfully.";
+
+    // --- User profile ---
+    public static final String PROFILE_UPDATED       = "Profile updated successfully.";
+    public static final String PASSWORD_CHANGED      = "Password changed successfully.";
+    public static final String WRONG_CURRENT_PASSWORD = "Current password is incorrect.";
 }

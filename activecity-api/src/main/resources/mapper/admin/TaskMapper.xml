@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.admin.repository.TaskMapper">
+
+    <resultMap id="taskResultMap" type="com.activecity.api.admin.dto.TaskDto">
+        <id     property="id"             column="id"/>
+        <result property="title"          column="title"/>
+        <result property="description"    column="description"/>
+        <result property="category"       column="category"/>
+        <result property="status"         column="status"/>
+        <result property="priority"       column="priority"/>
+        <result property="assignedToName" column="assigned_to_name"/>
+        <result property="assignedToId"   column="assigned_to"/>
+        <result property="dueDate"        column="due_date"/>
+        <result property="createdByName"  column="created_by_name"/>
+        <result property="createdAt"      column="created_at"/>
+        <result property="updatedAt"      column="updated_at"/>
+    </resultMap>
+
+    <sql id="taskSelect">
+        SELECT t.id, t.title, t.description, t.category, t.status, t.priority,
+               t.assigned_to, u1.full_name AS assigned_to_name,
+               TO_CHAR(t.due_date, 'YYYY-MM-DD') AS due_date,
+               u2.full_name AS created_by_name,
+               TO_CHAR(t.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at,
+               TO_CHAR(t.updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at
+        FROM tasks t
+        LEFT JOIN users u1 ON u1.id = t.assigned_to
+        LEFT JOIN users u2 ON u2.id = t.created_by
+    </sql>
+
+    <select id="findAll" resultMap="taskResultMap">
+        <include refid="taskSelect"/>
+        WHERE t.delete_flg = 0
+        <if test="status != null and status != ''">
+          AND t.status = #{status}
+        </if>
+        <if test="search != null and search != ''">
+          AND LOWER(t.title) LIKE CONCAT('%', LOWER(#{search}), '%')
+        </if>
+        <if test="priority != null and priority != ''">
+          AND t.priority = #{priority}
+        </if>
+        ORDER BY t.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM tasks t
+        WHERE t.delete_flg = 0
+        <if test="status != null and status != ''">
+          AND t.status = #{status}
+        </if>
+        <if test="search != null and search != ''">
+          AND LOWER(t.title) LIKE CONCAT('%', LOWER(#{search}), '%')
+        </if>
+        <if test="priority != null and priority != ''">
+          AND t.priority = #{priority}
+        </if>
+    </select>
+
+    <select id="findById" resultMap="taskResultMap">
+        <include refid="taskSelect"/>
+        WHERE t.id = #{id} AND t.delete_flg = 0
+    </select>
+
+    <select id="countActive" resultType="int">
+        SELECT COUNT(*) FROM tasks WHERE delete_flg = 0 AND status IN ('OPEN', 'IN_PROGRESS')
+    </select>
+
+    <select id="countDueToday" resultType="int">
+        SELECT COUNT(*) FROM tasks
+        WHERE delete_flg = 0 AND status IN ('OPEN', 'IN_PROGRESS') AND due_date = CURRENT_DATE
+    </select>
+
+    <select id="countCompletedThisWeek" resultType="int">
+        SELECT COUNT(*) FROM tasks
+        WHERE delete_flg = 0 AND status = 'DONE'
+          AND updated_at >= DATE_TRUNC('week', NOW())
+    </select>
+
+    <insert id="insert">
+        INSERT INTO tasks (title, description, category, priority, status, assigned_to, due_date, created_by, created_at)
+        VALUES (#{title}, #{description}, #{category}, #{priority},
+                COALESCE(#{status}, 'OPEN'), #{assignedTo},
+                <if test="dueDate != null and dueDate != ''">#{dueDate}::DATE</if>
+                <if test="dueDate == null or dueDate == ''">NULL</if>,
+                #{createdBy}, NOW())
+    </insert>
+
+    <select id="lastInsertId" resultType="long">
+        SELECT LASTVAL()
+    </select>
+
+    <update id="update">
+        UPDATE tasks SET
+            title       = #{title},
+            description = #{description},
+            category    = #{category},
+            priority    = #{priority},
+            status      = #{status},
+            assigned_to = #{assignedTo},
+            due_date    = <if test="dueDate != null and dueDate != ''">#{dueDate}::DATE</if><if test="dueDate == null or dueDate == ''">NULL</if>,
+            updated_at  = NOW()
+        WHERE id = #{id} AND delete_flg = 0
+    </update>
+
+    <update id="updateStatus">
+        UPDATE tasks SET status = #{status}, updated_at = NOW()
+        WHERE id = #{id} AND delete_flg = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE tasks SET delete_flg = 1, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

@@ -1,18 +1,25 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
-  --color-bg: #1e1e2e;
-  --color-surface: #313244;
-  --color-surface-raised: #45475a;
-  --color-brand-primary: #cba6f7;
-  --color-brand-secondary: #89b4fa;
-  --color-text-primary: #cdd6f4;
-  --color-text-muted: #a6adc8;
-  --color-border: #45475a;
-  --color-error: #f38ba8;
-  --color-success: #a6e3a1;
+  --color-bg: #0f1117;
+  --color-surface: #1a1d2e;
+  --color-surface-raised: #252840;
+  --color-brand-primary: #22d3ee;
+  --color-brand-secondary: #818cf8;
+  --color-text-primary: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-border: rgba(255,255,255,0.06);
+  --color-error: #f87171;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+
+  /* Status colors */
+  --status-active:   #34d399;
+  --status-blue:     #60a5fa;
+  --status-yellow:   #fbbf24;
+  --status-red:      #f87171;
+  --status-slate:    #94a3b8;
+  --status-purple:   #a78bfa;
 }
 
 @keyframes fadeInUp {

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.admin.repository.NoticeMapper">
+
+    <resultMap id="noticeResultMap" type="com.activecity.api.admin.dto.NoticeDto">
+        <id     property="id"          column="id"/>
+        <result property="title"       column="title"/>
+        <result property="content"     column="content"/>
+        <result property="type"        column="type"/>
+        <result property="status"      column="status"/>
+        <result property="pinned"      column="pinned"/>
+        <result property="postedByName" column="posted_by_name"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="createdAt"   column="created_at"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="noticeResultMap">
+        SELECT n.id, n.title, n.content, n.type, n.status, n.pinned,
+               u.full_name AS posted_by_name,
+               TO_CHAR(n.published_at, 'YYYY-MM-DD HH24:MI:SS') AS published_at,
+               TO_CHAR(n.created_at,   'YYYY-MM-DD HH24:MI:SS') AS created_at
+        FROM notices n
+        LEFT JOIN users u ON u.id = n.posted_by
+        WHERE n.delete_flg = 0
+        <if test="type != null and type != ''">
+          AND n.type = #{type}
+        </if>
+        <if test="status != null and status != ''">
+          AND n.status = #{status}
+        </if>
+        ORDER BY n.pinned DESC, n.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM notices n
+        WHERE n.delete_flg = 0
+        <if test="type != null and type != ''">
+          AND n.type = #{type}
+        </if>
+        <if test="status != null and status != ''">
+          AND n.status = #{status}
+        </if>
+    </select>
+
+    <select id="findById" resultMap="noticeResultMap">
+        SELECT n.id, n.title, n.content, n.type, n.status, n.pinned,
+               u.full_name AS posted_by_name,
+               TO_CHAR(n.published_at, 'YYYY-MM-DD HH24:MI:SS') AS published_at,
+               TO_CHAR(n.created_at,   'YYYY-MM-DD HH24:MI:SS') AS created_at
+        FROM notices n
+        LEFT JOIN users u ON u.id = n.posted_by
+        WHERE n.id = #{id} AND n.delete_flg = 0
+    </select>
+
+    <insert id="insert">
+        INSERT INTO notices (title, content, type, status, pinned, posted_by, created_at,
+                             published_at)
+        VALUES (#{title}, #{content}, #{type}, #{status}, #{pinned}, #{postedBy}, NOW(),
+                <if test="status == 'PUBLISHED'">NOW()</if>
+                <if test="status != 'PUBLISHED'">NULL</if>)
+    </insert>
+
+    <select id="lastInsertId" resultType="long">
+        SELECT LASTVAL()
+    </select>
+
+    <update id="update">
+        UPDATE notices SET
+            title      = #{title},
+            content    = #{content},
+            type       = #{type},
+            status     = #{status},
+            pinned     = #{pinned},
+            updated_at = NOW()
+            <if test="status == 'PUBLISHED'">, published_at = COALESCE(published_at, NOW())</if>
+        WHERE id = #{id} AND delete_flg = 0
+    </update>
+
+    <update id="publish">
+        UPDATE notices SET status = 'PUBLISHED', published_at = NOW(), updated_at = NOW()
+        WHERE id = #{id} AND delete_flg = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE notices SET delete_flg = 1, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

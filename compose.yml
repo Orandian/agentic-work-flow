@@ -30,7 +30,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./activecity-api/src/main/resources/db/V1__init_auth_schema.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     networks:
       - activecity-net
     healthcheck:
@@ -51,7 +51,7 @@ services:
     networks:
       - activecity-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v2/heartbeat || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000' 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -140,8 +140,10 @@ services:
     container_name: activecity-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@activecity.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_DEFAULT_EMAIL:                    ${PGADMIN_EMAIL:-admin@activecity.dev}
+      PGADMIN_DEFAULT_PASSWORD:                 ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+      GUNICORN_CMD_ARGS:                        "--limit-request-line 0 --limit-request-field_size 0 --limit-request-fields 0"
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     depends_on:
@@ -150,3 +152,14 @@ services:
       - activecity-net
     profiles:
       - tools
+
+  # ── MailHog (local mail catcher — always on for dev) ────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: activecity-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+    networks:
+      - activecity-net

@@ -11,7 +11,7 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 
 # ── Port map ──────────────────────────────────────────────────────────────────
-PORT_DB=${POSTGRES_PORT:-5432}
+PORT_DB=${POSTGRES_PORT:-5433}
 PORT_CHROMA=${CHROMA_HOST_PORT:-8001}
 PORT_BACKEND=${BACKEND_PORT:-8080}
 PORT_FRONTEND=${FRONTEND_PORT:-3000}
@@ -75,20 +75,39 @@ cleanup() {
 trap cleanup INT TERM
 
 
+# ── Release any stale processes holding our ports ────────────────────────────
+free_port() {
+  local port="$1"
+  local pids
+  pids="$(lsof -ti ":${port}" 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    echo "  Releasing port ${port} (PID ${pids})..."
+    echo "$pids" | xargs kill -9 2>/dev/null || true
+  fi
+}
+free_port "$PORT_BACKEND"
+free_port "$PORT_FRONTEND"
+free_port "$PORT_AI_SEARCH"
+
+
 # ── Load root .env if present ─────────────────────────────────────────────────
 if [ -f "$ROOT_DIR/.env" ]; then
   set -a; source "$ROOT_DIR/.env"; set +a
 fi
 
 
+MAILHOG_SMTP_PORT=${MAILHOG_SMTP_PORT:-1025}
+MAILHOG_UI_PORT=${MAILHOG_UI_PORT:-8025}
+
 echo ""
 echo "=========================================="
-echo " PostgreSQL + ChromaDB  (Docker)"
+echo " PostgreSQL + ChromaDB + MailHog  (Docker)"
 echo "  PostgreSQL : port ${PORT_DB}"
 echo "  ChromaDB   : port ${PORT_CHROMA}"
+echo "  MailHog    : smtp ${MAILHOG_SMTP_PORT}  ui ${MAILHOG_UI_PORT}"
 echo "=========================================="
 cd "$ROOT_DIR"
-docker compose up -d db chroma
+docker compose up -d db chroma mailhog
 
 
 echo ""
@@ -96,11 +115,11 @@ echo "=========================================="
 echo " Spring Boot Backend  (port ${PORT_BACKEND})"
 echo "=========================================="
 if [ -f "$ROOT_DIR/activecity-api/mvnw" ]; then
-  (cd "$ROOT_DIR/activecity-api" && ./mvnw spring-boot:run -q) &
+  (cd "$ROOT_DIR/activecity-api" && set -a && [ -f .env ] && source .env; set +a && ./mvnw spring-boot:run -q) &
 elif command -v mvn &>/dev/null; then
-  (cd "$ROOT_DIR/activecity-api" && mvn spring-boot:run -q) &
+  (cd "$ROOT_DIR/activecity-api" && set -a && [ -f .env ] && source .env; set +a && mvn spring-boot:run -q) &
 else
-  echo "  ⚠  Maven wrapper not found — skipping backend (run: cd activecity-api && ./mvnw spring-boot:run)"
+  echo "  ⚠  Maven not found — skipping backend"
 fi
 
 
@@ -172,6 +191,7 @@ echo "  AI Search  (FastAPI RAG)      :  http://localhost:${PORT_AI_SEARCH}"
 echo "  AI Docs    (Swagger UI)       :  http://localhost:${PORT_AI_SEARCH}/docs"
 echo "  PostgreSQL                    :  localhost:${PORT_DB}"
 echo "  ChromaDB                      :  http://localhost:${PORT_CHROMA}"
+echo "  MailHog   (catch emails)      :  http://localhost:${MAILHOG_UI_PORT}"
 echo ""
 echo "  Optional:"
 echo "  pgAdmin  :  docker compose --profile tools up -d pgadmin"

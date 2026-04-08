@@ -27,15 +27,13 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow API routes and static assets through
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
 
-  // Allow public auth pages through
   if (
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))
   ) {

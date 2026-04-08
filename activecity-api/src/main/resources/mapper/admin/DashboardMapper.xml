@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.admin.repository.DashboardMapper">
+
+    <select id="countTotalStaff" resultType="int">
+        SELECT COUNT(*) FROM users WHERE delete_flg = 0
+    </select>
+
+    <select id="countNewStaffThisMonth" resultType="int">
+        SELECT COUNT(*) FROM users
+        WHERE delete_flg = 0
+          AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+    </select>
+
+    <select id="countActiveTasks" resultType="int">
+        SELECT COUNT(*) FROM tasks
+        WHERE delete_flg = 0 AND status IN ('OPEN', 'IN_PROGRESS')
+    </select>
+
+    <select id="countTasksDueToday" resultType="int">
+        SELECT COUNT(*) FROM tasks
+        WHERE delete_flg = 0
+          AND status IN ('OPEN', 'IN_PROGRESS')
+          AND due_date = CURRENT_DATE
+    </select>
+
+    <select id="countTotalDocuments" resultType="int">
+        SELECT COUNT(*) FROM ai_documents WHERE delete_flg = 0
+    </select>
+
+    <select id="countNewDocumentsThisWeek" resultType="int">
+        SELECT COUNT(*) FROM ai_documents
+        WHERE delete_flg = 0
+          AND uploaded_at >= DATE_TRUNC('week', NOW())
+    </select>
+
+    <select id="countPendingNotices" resultType="int">
+        SELECT COUNT(*) FROM notices
+        WHERE delete_flg = 0 AND status = 'DRAFT'
+    </select>
+
+    <select id="countUrgentNotices" resultType="int">
+        SELECT COUNT(*) FROM notices
+        WHERE delete_flg = 0 AND type = 'URGENT' AND status = 'PUBLISHED'
+    </select>
+
+</mapper>

@@ -3,6 +3,7 @@ package com.activecity.api.config;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,9 +28,18 @@ public class AuthorizeRequest implements
             AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry registry) {
 
         registry
-                .requestMatchers("/pub/**").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/user/**").hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers(new AntPathRequestMatcher("/pub/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/actuator/health")).permitAll()
+                .requestMatchers(
+                        new AntPathRequestMatcher("/swagger-ui"),
+                        new AntPathRequestMatcher("/swagger-ui/"),
+                        new AntPathRequestMatcher("/swagger-ui/**"),
+                        new AntPathRequestMatcher("/swagger-ui.html"),
+                        new AntPathRequestMatcher("/v3/api-docs"),
+                        new AntPathRequestMatcher("/v3/api-docs/**")
+                ).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/admin/**")).hasRole("ADMIN")
+                .requestMatchers(new AntPathRequestMatcher("/user/**")).hasAnyRole("STAFF", "ADMIN")
                 .anyRequest().authenticated();
     }
 }

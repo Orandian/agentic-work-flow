@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.activecity.api.admin.repository.StaffMapper">
+
+    <resultMap id="staffResultMap" type="com.activecity.api.admin.dto.StaffDto">
+        <id     property="id"            column="id"/>
+        <result property="name"          column="full_name"/>
+        <result property="email"         column="email"/>
+        <result property="department"    column="department"/>
+        <result property="position"      column="position"/>
+        <result property="userType"      column="role"/>
+        <result property="status"        column="status"/>
+        <result property="latestLoginAt" column="latest_login_at"/>
+        <result property="createdAt"     column="created_at"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="staffResultMap">
+        SELECT id, full_name, email, department, position, role,
+               CASE WHEN is_active THEN 1 ELSE 2 END AS status,
+               NULL AS latest_login_at,
+               TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
+        FROM users
+        WHERE delete_flg = 0
+        <if test="search != null and search != ''">
+          AND (LOWER(full_name) LIKE CONCAT('%', LOWER(#{search}), '%')
+            OR LOWER(email)    LIKE CONCAT('%', LOWER(#{search}), '%'))
+        </if>
+        <if test="department != null and department != ''">
+          AND LOWER(department) = LOWER(#{department})
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM users
+        WHERE delete_flg = 0
+        <if test="search != null and search != ''">
+          AND (LOWER(full_name) LIKE CONCAT('%', LOWER(#{search}), '%')
+            OR LOWER(email)    LIKE CONCAT('%', LOWER(#{search}), '%'))
+        </if>
+        <if test="department != null and department != ''">
+          AND LOWER(department) = LOWER(#{department})
+        </if>
+    </select>
+
+    <select id="findById" resultMap="staffResultMap">
+        SELECT id, full_name, email, department, position, role,
+               CASE WHEN is_active THEN 1 ELSE 2 END AS status,
+               NULL AS latest_login_at,
+               TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
+        FROM users
+        WHERE id = #{id} AND delete_flg = 0
+    </select>
+
+    <select id="countTotal" resultType="int">
+        SELECT COUNT(*) FROM users WHERE delete_flg = 0
+    </select>
+
+    <select id="countActive" resultType="int">
+        SELECT COUNT(*) FROM users WHERE delete_flg = 0 AND is_active = TRUE
+    </select>
+
+    <select id="countLocked" resultType="int">
+        SELECT COUNT(*) FROM users WHERE delete_flg = 0 AND is_active = FALSE
+    </select>
+
+    <select id="countNewThisMonth" resultType="int">
+        SELECT COUNT(*) FROM users
+        WHERE delete_flg = 0
+          AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+    </select>
+
+    <select id="countByDepartment" resultType="map">
+        SELECT COALESCE(department, 'Unknown') AS department, COUNT(*) AS cnt
+        FROM users WHERE delete_flg = 0
+        GROUP BY department
+    </select>
+
+    <insert id="insert">
+        INSERT INTO users (full_name, email, department, position, password_hash, role, is_active, delete_flg, created_at, updated_at)
+        VALUES (#{name}, #{email}, #{department}, #{position}, #{passwordHash}, #{userType}::VARCHAR, TRUE, 0, NOW(), NOW())
+    </insert>
+
+    <select id="lastInsertId" resultType="long">
+        SELECT LASTVAL()
+    </select>
+
+    <update id="update">
+        UPDATE users SET
+            full_name     = #{name},
+            department    = #{department},
+            position      = #{position},
+            role          = #{userType}::VARCHAR,
+            updated_at    = NOW()
+            <if test="passwordHash != null">, password_hash = #{passwordHash}</if>
+        WHERE id = #{id} AND delete_flg = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE users SET delete_flg = 1, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
