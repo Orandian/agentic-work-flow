@@ -38,7 +38,7 @@ public class AuthorizeRequest implements
                         new AntPathRequestMatcher("/v3/api-docs"),
                         new AntPathRequestMatcher("/v3/api-docs/**")
                 ).permitAll()
-                .requestMatchers(new AntPathRequestMatcher("/admin/**")).hasRole("ADMIN")
+                .requestMatchers(new AntPathRequestMatcher("/admin/**")).hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers(new AntPathRequestMatcher("/user/**")).hasAnyRole("STAFF", "ADMIN")
                 .anyRequest().authenticated();
     }

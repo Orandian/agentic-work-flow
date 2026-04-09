@@ -59,6 +59,7 @@ public class UserAuthProvider {
                 .withSubject(user.getEmail())
                 .withClaim("userId", user.getId())
                 .withClaim("role", user.getRole().name())
+                .withClaim("fullName", user.getFullName())
                 .withIssuedAt(Date.from(now))
                 .withExpiresAt(Date.from(expiry))
                 .sign(Algorithm.HMAC256(secret));

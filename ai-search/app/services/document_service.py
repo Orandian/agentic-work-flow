@@ -3,7 +3,6 @@ import re
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
 import pypdf
 import docx
 import io
@@ -11,6 +10,7 @@ import io
 from app.config.settings import settings
 from app.schemas.document import DocumentOut, DocumentListResponse
 from app.repositories import chroma_repository, document_repository
+from app.services import ollama_service
 
 ALLOWED_TYPES = {
     "application/pdf": "pdf",
@@ -23,15 +23,6 @@ MAGIC_BYTES: dict[str, bytes] = {
     "application/pdf": b"%PDF",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": b"PK\x03\x04",
 }
-
-_embedding_model: SentenceTransformer | None = None
-
-
-def _get_embedding_model() -> SentenceTransformer:
-    global _embedding_model
-    if _embedding_model is None:
-        _embedding_model = SentenceTransformer(settings.embedding_model)
-    return _embedding_model
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -99,8 +90,7 @@ async def upload_document(file: UploadFile, current_user: dict, db: Session) -> 
     )
     text_chunks = splitter.split_text(text)
 
-    model = _get_embedding_model()
-    embeddings = model.encode(text_chunks).tolist()
+    embeddings = ollama_service.embed_batch(text_chunks)
 
     doc_record = document_repository.create_document(
         db,

@@ -15,6 +15,7 @@ import {
   ChevronRight,
   LogOut,
   Zap,
+  MessageSquare,
 } from "lucide-react";
 import { Toaster } from "sonner";
 
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/staff", label: "Staff", Icon: Users },
   { href: "/tasks", label: "Tasks", Icon: CheckSquare },
   { href: "/documents", label: "Documents", Icon: FileText },
+  { href: "/chat", label: "Chat AI", Icon: MessageSquare },
   { href: "/notices", label: "Notices", Icon: Bell },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
@@ -46,17 +48,30 @@ export default function PortalLayout({
   const pathname = usePathname();
   const logout = useLogout();
   const session = useSession();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   const email = session.data?.email ?? "";
   const role = session.data?.role ?? "";
-  const name = email
-    ? email
-        .split("@")[0]
-        .split(/[._-]/)
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join(" ")
-    : "User";
+  const name =
+    session.data?.fullName?.trim() ||
+    (email
+      ? email
+          .split("@")[0]
+          .split(/[._-]/)
+          .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+          .join(" ")
+      : "User");
   const av = initials(name);
 
   const handleLogout = () => {
@@ -171,7 +186,7 @@ export default function PortalLayout({
 
         {/* Collapse toggle */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           style={{
             margin: "0.75rem",
             padding: "0.5rem",

@@ -21,6 +21,7 @@ export interface SessionPayload {
   userId: number;
   email: string;
   role: "STAFF" | "ADMIN";
+  fullName: string | null;
   /** Expiry as Unix seconds */
   exp: number;
 }
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
     userId: payload.userId as number,
     email: payload.sub as string,
     role: payload.role as "STAFF" | "ADMIN",
+    fullName: (payload.fullName as string) || null,
     exp,
   };
 

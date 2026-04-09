@@ -17,6 +17,7 @@ export interface SessionPayload {
   userId: number;
   email: string;
   role: "STAFF" | "ADMIN";
+  fullName: string | null;
   exp: number;
 }
 

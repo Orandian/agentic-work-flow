@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, ARRAY, TIMESTAMP, create_engine
+from sqlalchemy import Column, Integer, String, ARRAY, TIMESTAMP, ForeignKey, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session
 from app.config.settings import settings
 
@@ -11,15 +11,17 @@ class Base(DeclarativeBase):
 class AiDocument(Base):
     __tablename__ = "ai_documents"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    file_type = Column(String(20), nullable=False)
-    file_size = Column(Integer, nullable=False)
-    chunk_count = Column(Integer, nullable=False, default=0)
-    chroma_ids = Column(ARRAY(String), nullable=True)
-    uploaded_by = Column(String(255), nullable=False)
-    uploaded_at = Column(TIMESTAMP(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    delete_flg = Column(Integer, nullable=False, default=0)
+    id           = Column(Integer, primary_key=True, index=True)
+    name         = Column(String(255), nullable=False)
+    display_name = Column(String(255), nullable=True)   # user-visible name (rename without re-indexing)
+    file_type    = Column(String(20), nullable=False)
+    file_size    = Column(Integer, nullable=False)
+    chunk_count  = Column(Integer, nullable=False, default=0)
+    chroma_ids   = Column(ARRAY(String), nullable=True)
+    uploaded_by  = Column(String(255), nullable=False)
+    uploaded_at  = Column(TIMESTAMP(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    delete_flg   = Column(Integer, nullable=False, default=0)
+    folder_id    = Column(Integer, ForeignKey("ai_folders.id", ondelete="SET NULL"), nullable=True)
 
 
 def get_engine(url: str | None = None):
@@ -65,3 +67,23 @@ def soft_delete_document(db: Session, doc_id: int) -> None:
     if doc:
         doc.delete_flg = 1
         db.commit()
+
+
+def rename_document(db: Session, doc_id: int, display_name: str) -> AiDocument | None:
+    doc = get_document(db, doc_id)
+    if not doc:
+        return None
+    doc.display_name = display_name
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def move_document(db: Session, doc_id: int, folder_id: int | None) -> AiDocument | None:
+    doc = get_document(db, doc_id)
+    if not doc:
+        return None
+    doc.folder_id = folder_id
+    db.commit()
+    db.refresh(doc)
+    return doc

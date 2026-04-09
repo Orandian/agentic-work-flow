@@ -9,6 +9,11 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
 
+    # Ollama (local LLM + embeddings)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_embed_model: str = "nomic-embed-text"
+    ollama_chat_model: str = "llama3.1:8b"
+
     chroma_host: str = "localhost"
     chroma_port: int = 8001
     chroma_collection: str = "activecity-docs"

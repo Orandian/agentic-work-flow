@@ -5,15 +5,11 @@ from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 
 from app.config.settings import settings
-from app.routers import health, documents, search
-from app.services import document_service, rag_service
+from app.routers import health, documents, search, chat, folders
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm up shared embedding model singleton to avoid cold-start on first request
-    document_service._get_embedding_model()
-    rag_service._get_embedding_model()
     yield
 
 
@@ -53,3 +49,5 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(health.router)
 app.include_router(documents.router)
 app.include_router(search.router)
+app.include_router(chat.router)
+app.include_router(folders.router)

@@ -10,6 +10,8 @@ import axios from "axios";
 import type {
   DocumentListResponse,
   DocumentOut,
+  FolderOut,
+  FolderListResponse,
   SearchRequest,
   SearchResponse,
 } from "@/types/ai";
@@ -18,6 +20,7 @@ import type {
 
 export const AI_QUERY_KEYS = {
   documents: ["ai", "documents"] as const,
+  folders: ["ai", "folders"] as const,
   search: (query: string) => ["ai", "search", query] as const,
 };
 
@@ -96,6 +99,106 @@ export function useDeleteDocument() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: AI_QUERY_KEYS.documents });
+    },
+  });
+}
+
+// ── Folder hooks ─────────────────────────────────────────────────────────────
+
+export function useFolders() {
+  return useQuery<FolderListResponse, Error>({
+    queryKey: AI_QUERY_KEYS.folders,
+    queryFn: async () => {
+      const { data } =
+        await axios.get<ApiEnvelope<FolderListResponse>>("/api/ai/folders");
+      if (!data.success) throw new Error(data.message ?? "Failed");
+      return data.data;
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useCreateFolder() {
+  const qc = useQueryClient();
+  return useMutation<FolderOut, Error, string>({
+    mutationFn: async (name) => {
+      const { data } = await axios.post<ApiEnvelope<FolderOut>>(
+        "/api/ai/folders",
+        { name },
+      );
+      if (!data.success) throw new Error(data.message ?? "Failed");
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.folders });
+    },
+  });
+}
+
+export function useRenameFolder() {
+  const qc = useQueryClient();
+  return useMutation<FolderOut, Error, { id: number; name: string }>({
+    mutationFn: async ({ id, name }) => {
+      const { data } = await axios.put<ApiEnvelope<FolderOut>>(
+        `/api/ai/folders/${id}`,
+        { name },
+      );
+      if (!data.success) throw new Error(data.message ?? "Failed");
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.folders });
+    },
+  });
+}
+
+export function useDeleteFolder() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, number>({
+    mutationFn: async (id) => {
+      await axios.delete(`/api/ai/folders/${id}`);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.folders });
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.documents });
+    },
+  });
+}
+
+export function useRenameDocument() {
+  const qc = useQueryClient();
+  return useMutation<DocumentOut, Error, { id: number; displayName: string }>({
+    mutationFn: async ({ id, displayName }) => {
+      const { data } = await axios.put<ApiEnvelope<DocumentOut>>(
+        `/api/ai/documents/${id}/rename`,
+        { display_name: displayName },
+      );
+      if (!data.success) throw new Error(data.message ?? "Failed");
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.documents });
+    },
+  });
+}
+
+export function useMoveDocument() {
+  const qc = useQueryClient();
+  return useMutation<
+    DocumentOut,
+    Error,
+    { id: number; folderId: number | null }
+  >({
+    mutationFn: async ({ id, folderId }) => {
+      const { data } = await axios.put<ApiEnvelope<DocumentOut>>(
+        `/api/ai/documents/${id}/move`,
+        { folder_id: folderId },
+      );
+      if (!data.success) throw new Error(data.message ?? "Failed");
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: AI_QUERY_KEYS.documents });
     },
   });
 }

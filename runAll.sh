@@ -144,7 +144,7 @@ echo " AI Search — FastAPI RAG  (port ${PORT_AI_SEARCH})"
 echo "=========================================="
 if [ -f "$ROOT_DIR/ai-search/requirements.txt" ]; then
   if [ -f "$ROOT_DIR/ai-search/venv/bin/activate" ]; then
-    (cd "$ROOT_DIR/ai-search" && source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port "$PORT_AI_SEARCH" --reload) &
+    (cd "$ROOT_DIR/ai-search" && venv/bin/python3.13 -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT_AI_SEARCH" --reload) &
   else
     echo "  ⚠  ai-search/venv not found — run init.sh first to create the virtual environment"
   fi

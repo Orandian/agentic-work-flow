@@ -142,13 +142,15 @@ export default function DashboardPage() {
   const [result, setResult] = useState<SearchResponse | null>(null);
 
   const email = session.data?.email ?? "";
-  const name = email
-    ? email
-        .split("@")[0]
-        .split(/[._-]/)
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join(" ")
-    : "there";
+  const fullName = session.data?.fullName?.trim();
+  const firstName = fullName
+    ? fullName.split(/\s+/)[0]
+    : email
+      ? email
+          .split("@")[0]
+          .split(/[._-]/)[0]
+          .replace(/^\w/, (c) => c.toUpperCase())
+      : "there";
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -192,7 +194,7 @@ export default function DashboardPage() {
             color: "var(--color-text-primary)",
           }}
         >
-          {greeting}, {name}
+          {greeting}, {firstName}
         </h1>
         <p
           style={{
